@@ -90,20 +90,31 @@ class CourseOfferingsController < ApplicationController
   def enroll
     if @course_offering &&
       @course_offering.can_enroll? &&
-      CourseEnrollment.create(
-      course_offering: @course_offering,
-      user: current_user,
-      course_role: CourseRole.student)
 
-      redirect_to organization_course_path(
-        @course_offering.course.organization,
-        @course_offering.course,
-        @course_offering.term),
-        notice: 'You are now enrolled in ' +
-          "#{@course_offering.display_name}."
+      success = CourseEnrollment.create(
+        course_offering: @course_offering,
+        user: current_user,
+        course_role: CourseRole.student)
     else
-      flash[:warning] = 'Unable to enroll in that course.'
-      redirect_to root_path
+      success = false
+    end
+
+    if params[:iframe]
+      respond_to do |format|
+        format.json { render json: success }
+      end
+    else
+      if success
+        redirect_to organization_course_path(
+          @course_offering.course.organization,
+          @course_offering.course,
+          @course_offering.term),
+          notice: 'You are now enrolled in ' +
+            "#{@course_offering.display_name}."
+      else
+        flash[:warning] = 'Unable to enroll in that course.'
+        redirect_to root_path
+      end
     end
   end
 
