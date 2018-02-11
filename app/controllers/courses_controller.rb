@@ -137,16 +137,17 @@ class CoursesController < ApplicationController
       name: create_params[:name],
       number: create_params[:number],
       slug: create_params[:slug],
-      organization: @organization
+      organization: @organization,
+      is_hidden: create_params[:is_hidden]
     )
 
     if @course.save
       group = UserGroup.create(
         name: @course.number,
+        course: @course,
         description: "Privileged users for #{@course.display_name}."
       )
 
-      group.course = @course
       group.add_user_to_group(current_user)
 
       url = url_for(organization_new_course_offering_path(

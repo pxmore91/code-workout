@@ -3,7 +3,8 @@ COURSE = '#course'
 
 $(document).ready ->
   $('#term_id').change ->
-    window.location.href = '?term_id=' + $('#term_id').val()
+    enrolled = $('#enrolled').val()
+    window.location.href = "?enrolled=#{enrolled}&term_id=" + $('#term_id').val()
 
 $('.organizations.new_or_existing').ready ->
   setup_autocomplete '/organizations/search', ORGANIZATION
@@ -41,7 +42,7 @@ $('.organizations.new_or_existing').ready ->
       if term == ''
         $('#org-hint').text ''
       validate_org_slug term
-    , 1000
+    , 750
 
   course_keyup = null
   $('#number').keyup ->
@@ -51,7 +52,7 @@ $('.organizations.new_or_existing').ready ->
       if term == ''
         $('#course-hint').text ''
       validate_course_number term
-    , 1000
+    , 750
 
 
   $('#btn-submit-org').on 'click', ->
@@ -69,7 +70,9 @@ get_abbr_suggestion = (org_name)->
     data: { name: org_name }
     success: (data)->
       if data['abbr']
-        $('#abbr').attr 'placeholder', data['abbr']
+        # $('#abbr').attr 'placeholder', data['abbr']
+        $('#abbr').val(data['abbr'])
+        validate_org_slug(data['abbr'])
       else
         $('#org-hint').text data['msg']
 
@@ -78,6 +81,7 @@ validate_org_slug = (term)->
   uniqueness = $('#uniqueness')
   uniqueness.removeClass()
   if term == ''
+    $('#org-hint').text("This is a required field")
     uniqueness.addClass 'fa fa-times-circle text-danger'
     return false
   else
@@ -97,7 +101,7 @@ validate_org_slug = (term)->
           uniqueness.addClass 'fa fa-times-circle text-danger'
           org_name = data['name']
           msg = "Sorry, that abbreviation is being used by #{org_name}."
-          $('#org-hint').text msg
+          $('#org-hint').text(msg)
           return false
 
 validate_name = (name, field)->
@@ -120,7 +124,11 @@ validate_course_number = (number)->
     ([0-9]{3,})     # followed by 3 or more digits
   $ ///             # end of line
 
-  if number != '' and number.match(r)
+  if number == ''
+    $('#course-valid').removeClass()
+    $('#course-valid').addClass 'fa fa-times-circle text-danger'
+    $('#course-hint').html('This is a required field.') 
+  else if number.match(r)
     $('#course-valid').removeClass().addClass('fa fa-spinner')
     $('#course-hint').empty()
     slug = number.toLowerCase()
@@ -218,16 +226,25 @@ handle_submit_course = ->
     org_id = $('#organization').data 'org-id'
     course_name = $('#course').val()
     course_number = $('#number').val()
+    is_hidden = $('#course-is-hidden').is ':checked'
     # enforce the format 'CS 1114' (including the space)
     dept = course_number.match(/^([A-Z]+)/g)
     number = course_number.match(/([0-9]+)$/g)
     course_number = "#{dept} #{number}"
     slug = course_number.replace('/\s+/', '')
+    form_data = {
+      course: {
+        number: course_number
+        slug: slug
+        name: course_name,
+        is_hidden: is_hidden
+      }
+    }
     $.ajax
       url: "/courses/#{org_id}/create"
       type: 'post'
       dataType: 'json'
-      data: { course: { number: course_number, slug: slug, name: course_name } }
+      data: form_data
       success: (data)->
         if data['success']?
           window.location.href = data['url']
@@ -239,10 +256,11 @@ handle_submit_organization = ->
   if valid
     name = $('#organization').val()
     abbr = $('#abbr').val()
+    is_hidden = $('#org-is-hidden').is ':checked'
     $.ajax
       url: '/organizations/'
       type: 'post'
-      data: { name: name, abbreviation: abbr }
+      data: { name: name, abbreviation: abbr, is_hidden: is_hidden }
       dataType: 'json'
       success: (data)->
         if data['success']
